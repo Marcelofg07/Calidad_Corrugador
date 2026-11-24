@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calculadora de curvatura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: herramienta de planta, clara y rápida, legible en el celular junto al corrugador
+   IDEA: el propio Warp Referee — carcasa blanca, escala vertical WF con franja verde/ámbar/roja
+   PICTURE: el medidor grande con la columna llena hasta la lectura, y la curvatura % en vivo al lado
+   COLOUR and TYPE: blanco carcasa, tinta, verde/ámbar/rojo del semáforo, azul acento; Source Sans 3
+   LAYOUT: título, panel instrumento (medidor + resultado), entradas, registro, tabla de referencia */
+:root{color-scheme:light dark;--bg:light-dark(#e9e7e1,#0f1311);--panel:light-dark(#fbfaf7,#1a1f1c);--ink:light-dark(#16201b,#eef1ec);--mute:light-dark(#57615b,#a2aba5);--line:light-dark(#d5d2c9,#2c3430);--track:light-dark(#1d2320,#050706);--blue:light-dark(#1374b3,#5bb4ea);--g:#2f8a57;--a:#e8a10e;--r:#c4242e;--zone:var(--g);--zink:var(--g);--zt:#fff}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Source Sans 3",system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,4vw,48px) max(5vw,16px)}
+.wrap{max-width:1000px;margin:0 auto;display:grid;gap:18px}
+h1{font-size:clamp(30px,5vw,44px);line-height:1.05;margin:0;text-wrap:balance;font-weight:800}
+h2{font-size:20px;line-height:1.2;margin:0 0 10px}
+.sub{color:var(--mute);margin:6px 0 0;max-width:64ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 30px -22px rgba(0,0,0,.45)}
+.inst{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:clamp(14px,3vw,36px);padding:clamp(16px,3vw,28px)}
+.fig{position:relative;min-height:320px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.tk{stroke:var(--mute)}.tx{fill:var(--mute);font:600 12px "Source Sans 3",sans-serif}
+.res{display:flex;flex-direction:column;justify-content:center;gap:8px}
+.lab{color:var(--mute);font-size:15px}
+.big{font-size:clamp(52px,13vw,116px);font-weight:800;line-height:.95;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--zink);white-space:nowrap;transition:color .25s}
+.pill{align-self:flex-start;padding:5px 14px;border-radius:999px;background:var(--zone);color:var(--zt);font-weight:700;transition:background .25s}
+.eq{color:var(--mute);font-size:15px;margin:4px 0 0}.eq b{color:var(--ink);white-space:nowrap}
+.inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:18px clamp(16px,3vw,28px) clamp(18px,3vw,28px);border-top:1px solid var(--line)}
+label{font-weight:700;display:block;margin-bottom:6px}
+.step{display:flex;gap:8px}
+input,button{font:inherit;color:inherit}
+input[type=text]{height:48px;border:1px solid var(--line);border-radius:12px;background:light-dark(#fff,#111513);padding:0 12px;font-size:16px}
+.step input[type=text]{flex:1;text-align:center;font-size:22px;font-weight:700}
+button{min-height:44px;min-width:44px;border:1px solid var(--line);border-radius:12px;background:light-dark(#f1efe9,#232a26);cursor:pointer;font-weight:700}
+button:hover{border-color:var(--blue)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+input[type=range]{width:100%;margin-top:10px;accent-color:var(--zone);height:28px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chips button{min-height:36px;padding:0 12px;font-weight:600;font-size:15px}
+.chips button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.lim{margin:0;padding:12px clamp(16px,3vw,28px);border-top:1px solid var(--line);color:var(--mute);font-size:15px}
+.lim b{color:var(--ink);white-space:nowrap}
+.card{padding:clamp(16px,3vw,24px)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+#ref td{cursor:pointer}
+#ref thead th{font-size:14px;color:var(--mute)}
+#ref thead th.on{color:var(--blue)}
+#ref tbody th{text-align:left}
+#ref tr.on th,#ref tr.on td{font-weight:700}
+#ref td.z0{background:light-dark(#e2f0e7,#15291c)}
+#ref td.z1{background:light-dark(#fcefcf,#36290c)}
+#ref td.z2{background:light-dark(#f7dede,#371719)}
+#ref td.hit{background:var(--zone);color:var(--zt);font-weight:800}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;font-size:14px;color:var(--mute)}
+.note{color:var(--mute);font-size:14px;margin:10px 0 0}
+.new{grid-column:1/-1;min-height:52px;font-size:17px;background:var(--blue);border-color:var(--blue);color:#fff}
+.new:hover{filter:brightness(1.08)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+details{margin-top:4px}summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.thr{display:grid;grid-template-columns:repeat(2,minmax(0,170px));gap:12px;margin-top:6px}
+.thr input{width:100%}
+@media(max-width:600px){table{font-size:13px}.inputs{grid-template-columns:minmax(0,1fr)}.inst{grid-template-columns:minmax(0,112px) minmax(0,1fr)}.fig{min-height:290px}th,td{padding:8px 7px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="band">
+<div class="wrap">
+  <header>
+    <h1>Calculadora de curvatura</h1>
+    <p class="sub">Ingresa la lectura del Warp Referee (WF) y el largo de la lámina; la curvatura sale con la misma fórmula de la tabla pegada en el equipo.</p>
+  </header>
+
+  <section class="panel" aria-label="Resultado">
+    <div class="inst">
+      <div class="fig" id="gfig"><svg id="gauge" role="img" aria-label="Medidor WF"></svg></div>
+      <div class="res" aria-live="polite">
+        <span class="lab">Curvatura de la lámina</span>
+        <span class="big" id="out">—</span>
+        <span class="pill" id="zone">—</span>
+        <p class="eq" id="eq"></p>
+      </div>
+    </div>
+    <div class="inputs">
+      <div>
+        <label for="wf">Lectura Warp Referee (WF)</label>
+        <div class="step"><button type="button" data-s="wf" data-d="-1" aria-label="Bajar WF">−</button><input type="text" id="wf" inputmode="decimal" autocomplete="off"><button type="button" data-s="wf" data-d="1" aria-label="Subir WF">+</button></div>
+        <input type="range" id="wfr" min="0" max="30" step="0.5" aria-label="WF deslizador">
+      </div>
+      <div>
+        <label for="l">Largo de lámina L (mm)</label>
+        <div class="step"><button type="button" data-s="l" data-d="-10" aria-label="Bajar largo">−</button><input type="text" id="l" inputmode="decimal" autocomplete="off"><button type="button" data-s="l" data-d="10" aria-label="Subir largo">+</button></div>
+        <div class="chips" id="lchips"></div>
+      </div>
+      <button type="button" class="new" id="nuevo">Nuevo registro</button>
+    </div>
+    <p class="lim" id="lim"></p>
+  </section>
+
+  <section class="panel card">
+    <h2>Tabla de referencia del equipo</h2>
+    <div class="scroll"><table id="ref"></table></div>
+    <p class="legend" id="legend"></p>
+    <p class="note">Toca una celda para cargar esos valores. Curvatura (%) = WF × L ÷ 2500, que reproduce cada valor de la etiqueta.</p>
+    <details>
+      <summary>Umbrales del semáforo</summary>
+      <div class="thr">
+        <div><label for="ta">Ámbar desde (%)</label><input type="text" id="ta" inputmode="decimal"></div>
+        <div><label for="tr">Rojo desde (%)</label><input type="text" id="tr" inputmode="decimal"></div>
+      </div>
+      <p class="note">Por defecto: menos de 1,5% verde, de 1,5% a 1,99% ámbar, 2% o más rojo.</p>
+    </details>
+  </section>
+</div>
+</main>
+<script>
+{
+const $=id=>document.getElementById(id);
+const num=v=>{const n=parseFloat(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:NaN};
+const fmt=(n,d=1)=>n.toFixed(d).replace('.',',');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const Ls=[250,300,500,700,900,1100],WFs=[5,10,15,20,25,30];
+const st={wf:10,l:900,ta:1.5,tr:2};
+try{const s=JSON.parse(localStorage.getItem('encocado-wr')||'{}');for(const k in st)if(s[k]!==undefined)st[k]=s[k]===null?NaN:s[k]}catch(e){}
+const save=()=>{try{localStorage.setItem('encocado-wr',JSON.stringify(st))}catch(e){}};
+const curv=(w,l)=>w*l/2500;
+const ZN=[
+  {k:0,n:'Verde',d:'en rango',c:'var(--g)',ink:'var(--g)',t:'#fff'},
+  {k:1,n:'Ámbar',d:'alerta',c:'var(--a)',ink:'light-dark(#a66f00,#f2b53a)',t:'#1d1606'},
+  {k:2,n:'Rojo',d:'fuera de rango',c:'var(--r)',ink:'var(--r)',t:'#fff'}];
+const zone=c=>{const v=Math.round(c*100)/100;return v>=st.tr?ZN[2]:v>=st.ta?ZN[1]:ZN[0]};
+const wfAt=(p,l)=>p*2500/l;
+const valid=()=>Number.isFinite(st.wf)&&st.wf>=0&&Number.isFinite(st.l)&&st.l>0;
+const svg=$('gauge'),gfig=$('gfig');
+
+const drawGauge=()=>{
+  const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+  const top=14,bot=H-20,max=30,cl=v=>Math.min(Math.max(v,0),max),y=v=>top+(cl(v)/max)*(bot-top);
+  const xl=Math.max(4,W*0.04),tx=xl+18,trX=tx+12,trW=Math.max(20,W*0.2),bX=trX+trW+8,bW=Math.max(14,W*0.13);
+  let s='';
+  for(let v=0;v<=max;v++){const yy=y(v),long=v%5===0;s+=`<line class="tk" x1="${tx+(long?0:5)}" x2="${tx+10}" y1="${yy}" y2="${yy}" stroke-width="${long?1.6:1}"/>`;if(long)s+=`<text class="tx" x="${tx-4}" y="${yy+4}" text-anchor="end">${v}</text>`}
+  s+=`<rect x="${trX}" y="${top-6}" width="${trW}" height="${bot-top+12}" rx="${trW/2}" fill="var(--track)"/>`;
+  const L=Number.isFinite(st.l)&&st.l>0?st.l:900,a=cl(wfAt(st.ta,L)),r=cl(Math.max(wfAt(st.tr,L),a));
+  s+=`<rect x="${bX}" y="${y(0)}" width="${bW}" height="${y(a)-y(0)}" fill="var(--g)"/><rect x="${bX}" y="${y(a)}" width="${bW}" height="${y(r)-y(a)}" fill="var(--a)"/><rect x="${bX}" y="${y(r)}" width="${bW}" height="${y(max)-y(r)}" fill="var(--r)"/>`;
+  if(valid()){
+    const z=zone(curv(st.wf,st.l)),yy=y(st.wf);
+    s+=`<rect x="${trX+4}" y="${top-2}" width="${trW-8}" height="${Math.max(0,yy-top+2)}" rx="${(trW-8)/2}" fill="${z.c}" opacity=".9"/>`;
+    s+=`<line x1="${trX-4}" x2="${bX+bW+4}" y1="${yy}" y2="${yy}" stroke="var(--ink)" stroke-width="2.5"/>`;
+    const px=bX+bW+6;s+=`<polygon points="${px},${yy} ${px+12},${yy-8} ${px+12},${yy+8}" fill="var(--ink)"/>`;
+  }
+  s+=`<text class="tx" x="${bX+bW/2}" y="${H-3}" text-anchor="middle">WF</text>`;
+  svg.innerHTML=s;
+};
+const ro=new ResizeObserver(drawGauge);ro.observe(gfig);
+
+const renderRef=()=>{
+  $('ref').innerHTML='<thead><tr><th style="text-align:left">WF \\ L</th>'+Ls.map(c=>`<th class="${c===st.l?'on':''}">${c}</th>`).join('')+'</tr></thead><tbody>'+
+  WFs.map(r=>`<tr class="${r===st.wf?'on':''}"><th>${r}</th>`+Ls.map(c=>{const v=curv(r,c);return `<td class="z${zone(v).k}${r===st.wf&&c===st.l?' hit':''}" data-w="${r}" data-l="${c}">${fmt(v)}%</td>`}).join('')+'</tr>').join('')+'</tbody>';
+  $('legend').innerHTML=`<span><span class="dot" style="background:var(--g)"></span>Verde &lt; ${esc(fmt(st.ta,1))}%</span><span><span class="dot" style="background:var(--a)"></span>Ámbar ${esc(fmt(st.ta,1))}–${esc(fmt(st.tr-0.01,2))}%</span><span><span class="dot" style="background:var(--r)"></span>Rojo ≥ ${esc(fmt(st.tr,1))}%</span>`;
+};
+const renderChips=()=>{$('lchips').innerHTML=Ls.map(c=>`<button type="button" data-l="${c}" class="${c===st.l?'on':''}">${c}</button>`).join('')};
+
+const update=(fromField)=>{
+  const root=document.documentElement.style;
+  if(valid()){
+    const c=curv(st.wf,st.l),z=zone(c);
+    root.setProperty('--zone',z.c);root.setProperty('--zink',z.ink);root.setProperty('--zt',z.t);
+    $('out').textContent=fmt(c,c<10?2:1)+'%';
+    $('zone').textContent=`${z.n} · ${z.d}`;
+    $('eq').innerHTML=`<b>${esc(fmt(st.wf,1))}</b> × <b>${esc(st.l)} mm</b> ÷ 2500`;
+    $('lim').innerHTML=`Con L = <b>${esc(st.l)} mm</b>, el ámbar empieza en <b>WF ${fmt(wfAt(st.ta,st.l),1)}</b> y el rojo en <b>WF ${fmt(wfAt(st.tr,st.l),1)}</b>.`;
+  }else{
+    root.setProperty('--zone','var(--mute)');root.setProperty('--zink','var(--mute)');root.setProperty('--zt','#fff');
+    $('out').textContent='—';$('zone').textContent='Ingresa WF y largo';$('eq').textContent='';$('lim').textContent='';
+  }
+  if(fromField!=='wf')$('wf').value=Number.isFinite(st.wf)?String(st.wf).replace('.',','):'';
+  if(fromField!=='l')$('l').value=Number.isFinite(st.l)?String(st.l).replace('.',','):'';
+  $('wfr').value=Number.isFinite(st.wf)?Math.min(30,st.wf):0;
+  renderRef();renderChips();drawGauge();save();
+};
+
+$('wf').addEventListener('input',e=>{st.wf=num(e.target.value);update('wf')});
+$('l').addEventListener('input',e=>{st.l=num(e.target.value);update('l')});
+$('wfr').addEventListener('input',e=>{st.wf=num(e.target.value);update()});
+for(const b of document.querySelectorAll('[data-s]'))b.addEventListener('click',()=>{
+  const k=b.dataset.s,d=Number(b.dataset.d),cur=Number.isFinite(st[k])?st[k]:0;
+  st[k]=Math.max(0,Math.round((cur+d)*10)/10);update();
+});
+$('lchips').addEventListener('click',e=>{const b=e.target.closest('button');if(b){st.l=Number(b.dataset.l);update()}});
+$('ref').addEventListener('click',e=>{const td=e.target.closest('td');if(td){st.wf=Number(td.dataset.w);st.l=Number(td.dataset.l);update();gfig.scrollIntoView({behavior:'smooth',block:'center'})}});
+$('ta').value=fmt(st.ta,1);$('tr').value=fmt(st.tr,1);
+const thr=()=>{const a=num($('ta').value),b=num($('tr').value);if(Number.isFinite(a)&&a>0)st.ta=a;if(Number.isFinite(b)&&b>st.ta)st.tr=b;update()};
+$('ta').addEventListener('input',thr);$('tr').addEventListener('input',thr);
+
+$('nuevo').addEventListener('click',()=>{
+  st.wf=NaN;st.l=NaN;update();
+  $('wf').scrollIntoView({behavior:'smooth',block:'center'});$('wf').focus({preventScroll:true});
+});
+
+update();
+}
+</script>
+</body>
+</html>
